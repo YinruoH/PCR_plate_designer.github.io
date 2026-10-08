@@ -1,0 +1,3119 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>96孔板设计器（by HZC）旋转视角重映射版</title>
+
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --blue: #2563eb;
+      --red: #dc2626;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    }
+
+    .app {
+      width: min(100vw, 1480px);
+      margin: 0 auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+    }
+
+    .left-panel,
+    .right-panel {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .left-panel {
+      position: sticky;
+      top: 8px;
+      align-self: start;
+    }
+
+    .right-panel {
+      position: sticky;
+      top: 8px;
+      align-self: start;
+      max-height: calc(100vh - 16px);
+    }
+
+    .right-panel .plate-card {
+      max-height: calc(100vh - 16px);
+      overflow: hidden;
+    }
+
+    .plate-scroll {
+      width: 100%;
+      overflow: visible;
+      padding-bottom: 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .plate-view { display: none; }
+    .plate-view.active { display: block; }
+
+    .view-tabs {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .view-tabs button {
+      height: 30px;
+      font-size: 11px;
+      border-radius: 9px;
+      padding: 0 10px;
+    }
+
+    .view-tabs button.active {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #f59e0b;
+    }
+
+    .dot.ready { background: #22c55e; }
+    .dot.error { background: #ef4444; }
+
+    .runtime-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px 9px;
+      box-shadow: var(--shadow);
+    }
+
+    .runtime-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .runtime-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .runtime-stage {
+      font-size: 11px;
+      font-weight: 900;
+      color: #334155;
+      line-height: 1.35;
+    }
+
+    .runtime-detail {
+      margin-top: 2px;
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .runtime-percent {
+      flex: 0 0 auto;
+      font-size: 11px;
+      font-weight: 900;
+      color: #475569;
+      min-width: 36px;
+      text-align: right;
+    }
+
+    .progress-track {
+      height: 6px;
+      background: #eef2f7;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .progress-bar {
+      width: 0%;
+      height: 100%;
+      background: var(--blue);
+      border-radius: 999px;
+      transition: width .25s ease;
+    }
+
+    .progress-bar.error { background: #ef4444; }
+
+    .runtime-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 7px;
+      flex-wrap: wrap;
+    }
+
+    .runtime-actions button {
+      height: 28px;
+      font-size: 10px;
+      border-radius: 8px;
+      padding: 0 8px;
+    }
+
+    .diag-log {
+      display: none;
+      margin-top: 7px;
+      max-height: 180px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid var(--border);
+      background: #f8fafc;
+      border-radius: 9px;
+      padding: 7px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 9px;
+      line-height: 1.45;
+      color: #334155;
+      user-select: text;
+    }
+
+    .diag-log.show { display: block; }
+
+    .card, .plate-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 9px;
+    }
+
+    .section-title, .plate-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 7px;
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .pill {
+      font-size: 10px;
+      color: var(--muted);
+      background: #f3f4f6;
+      border-radius: 999px;
+      padding: 3px 7px;
+      white-space: nowrap;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      align-items: end;
+    }
+
+    .field { min-width: 0; position: relative; }
+
+    .custom-dropdown {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 58px;
+      z-index: 50;
+      display: none;
+      max-height: 260px;
+      overflow-y: auto;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+      padding: 5px;
+    }
+
+    .custom-dropdown.show {
+      display: block;
+    }
+
+    .dropdown-item {
+      width: 100%;
+      min-height: 32px;
+      height: auto;
+      border: none;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #111827;
+      text-align: left;
+      padding: 7px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .dropdown-item:hover,
+    .dropdown-item.active {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .dropdown-empty {
+      padding: 8px 9px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .label {
+      font-size: 10px;
+      color: var(--muted);
+      margin: 0 0 3px 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    input {
+      width: 100%;
+      height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 0 8px;
+      font-size: 14px;
+      font-weight: 800;
+      outline: none;
+      background: #f9fafb;
+      color: var(--text);
+      font-family: inherit;
+    }
+
+    input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    button {
+      height: 36px;
+      border: none;
+      border-radius: 11px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 900;
+      cursor: pointer;
+      padding: 0 10px;
+      font-family: inherit;
+    }
+
+    button.secondary {
+      background: #eef2f7;
+      color: #334155;
+    }
+
+    button.danger {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 7px;
+      margin-top: 7px;
+    }
+
+    .btn-row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 7px;
+      margin-top: 7px;
+    }
+
+    .history-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 6px;
+      min-height: 20px;
+    }
+
+    .chip {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: #334155;
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .msg {
+      min-height: 17px;
+      padding: 0 2px;
+      font-size: 11px;
+      color: var(--red);
+      line-height: 1.35;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 7px;
+      min-height: 47px;
+    }
+
+    .mini-label {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .mini-value {
+      margin-top: 4px;
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1.15;
+    }
+
+    .plate-actions {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .plate-actions button {
+      height: 30px;
+      font-size: 11px;
+      border-radius: 9px;
+      padding: 0 8px;
+    }
+
+    .export-image-title {
+      margin: 0 0 6px 0;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.25;
+      color: #0f172a;
+      word-break: break-all;
+    }
+
+    .right-panel .plate-card {
+      padding: 8px;
+    }
+
+    .right-panel .plate-head {
+      margin-bottom: 5px;
+    }
+
+    .right-panel .legend {
+      margin-top: 5px;
+      max-height: 42px;
+      overflow: hidden;
+    }
+
+    .plate-grid {
+      width: min(100%, calc((100vh - 118px) * 1.48));
+      max-width: 100%;
+      min-width: 0;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 22px repeat(12, minmax(0, 1fr)) 22px;
+      grid-template-rows: 22px repeat(8, auto) 22px;
+      gap: 3px;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .axis-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 900;
+      color: #475569;
+      background: #f3f4f6;
+      border-radius: 6px;
+    }
+
+    .corner { background: transparent; }
+
+    .well {
+      min-width: 0;
+      min-height: 0;
+      aspect-ratio: 1 / 1;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      background: #fff;
+      padding: 2px 2px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1px;
+      overflow: hidden;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .well.empty {
+      background: #fafafa;
+      color: #cbd5e1;
+    }
+
+    .well.selected {
+      outline: 3px solid #2563eb;
+      outline-offset: -3px;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.72);
+    }
+
+    .well-id {
+      font-size: 8px;
+      font-weight: 900;
+      line-height: 1;
+      opacity: 0.72;
+      white-space: nowrap;
+    }
+
+    .well-main {
+      font-size: clamp(5px, 0.62vw, 8px);
+      font-weight: 800;
+      line-height: 1.05;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      opacity: 0.82;
+    }
+
+    .well-sub {
+      font-size: clamp(7px, 0.82vw, 11px);
+      font-weight: 900;
+      color: #1f2937;
+      line-height: 1.02;
+      overflow: hidden;
+      white-space: nowrap;
+      letter-spacing: -0.15px;
+      transform-origin: center center;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 7px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 3px 7px;
+      background: #fff;
+      font-size: 10px;
+      color: #374151;
+    }
+
+    .legend-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+
+    .gene-catalog-item:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+
+    .gene-catalog-item.used,
+    .group-catalog-item.used {
+      background: #eef0f3;
+      border-color: #d1d5db;
+    }
+
+    .list-setting-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .list-setting-row button {
+      min-width: 58px;
+      padding: 0 10px;
+    }
+
+    .group-catalog,
+    .gene-catalog {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+      margin-top: 6px;
+    }
+
+    .group-catalog-item,
+    .gene-catalog-item {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 6px 0 8px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #fff;
+      color: #334155;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 800;
+      text-align: left;
+    }
+
+    .group-catalog-item:hover,
+    .gene-catalog-item:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+
+    .catalog-label {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .catalog-remove {
+      flex: 0 0 auto;
+      width: 20px;
+      height: 20px;
+      min-width: 20px;
+      padding: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 20px;
+    }
+
+    .catalog-remove:hover {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .list-tools {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .list-tools button {
+      height: 32px;
+      font-size: 11px;
+      border-radius: 9px;
+    }
+
+    .list-subtitle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 11px;
+      font-weight: 900;
+      color: #334155;
+    }
+
+    .list-help {
+      margin-top: 6px;
+      font-size: 10px;
+      line-height: 1.4;
+      color: var(--muted);
+    }
+
+    .gene-color-block {
+      flex: 0 0 auto;
+      width: 13px;
+      height: 13px;
+      border-radius: 4px;
+      border: 1px solid rgba(0,0,0,0.12);
+    }
+
+    .gene-catalog-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .gene-tools {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 7px;
+    }
+
+    .gene-tools button {
+      height: 32px;
+      font-size: 11px;
+      border-radius: 9px;
+    }
+
+    .compact-summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+    }
+
+    .compact-summary .mini {
+      padding: 6px;
+      min-height: 44px;
+    }
+
+    .detail-card {
+      display: none;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px;
+      background: #fff;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .detail-card.show { display: block; }
+
+    .detail-title {
+      font-weight: 900;
+      margin-bottom: 4px;
+    }
+
+    @media (max-width: 430px) {
+      .app {
+        padding: 7px;
+        gap: 7px;
+      }
+
+      h1 { font-size: 16px; }
+
+      .grid-2 {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+
+      input, button {
+        height: 34px;
+        font-size: 12px;
+      }
+
+      .btn-row,
+      .btn-row-2 {
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 6px;
+      }
+
+      .summary { gap: 5px; }
+
+      .mini {
+        padding: 5px;
+        min-height: 42px;
+      }
+
+      .mini-value { font-size: 12px; }
+
+      .plate-grid {
+        grid-template-columns: 16px repeat(12, 1fr) 16px;
+        grid-template-rows: 16px repeat(8, 27px) 16px;
+        gap: 1px;
+      }
+
+      .axis-label { font-size: 9px; }
+
+      .well {
+        min-height: 27px;
+        border-radius: 5px;
+        padding: 1px;
+      }
+
+      .well-id { font-size: 6px; }
+      .well-main { font-size: clamp(4px, 1.55vw, 6px); }
+      .well-sub { font-size: clamp(6px, 2vw, 9px); }
+
+      .plate-head { font-size: 13px; }
+
+      .plate-actions button {
+        height: 28px;
+        font-size: 10px;
+        padding: 0 6px;
+      }
+
+      .chip {
+        font-size: 10px;
+        padding: 2px 6px;
+        max-width: 96px;
+      }
+
+      .custom-dropdown {
+        top: 55px;
+        max-height: 220px;
+      }
+
+      .dropdown-item {
+        min-height: 30px;
+        font-size: 11px;
+        padding: 6px 8px;
+      }
+
+      .runtime-row {
+        align-items: flex-start;
+      }
+
+      .runtime-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+
+      .runtime-actions button {
+        padding: 0 4px;
+      }
+
+      .diag-log {
+        max-height: 150px;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .workspace { grid-template-columns: 1fr; }
+      .left-panel { position: static; }
+      .plate-grid { min-width: 720px; }
+    }
+
+    @media (max-width: 430px) {
+      .gene-catalog { grid-template-columns: 1fr 1fr; }
+      .plate-grid {
+        width: 100%;
+        min-width: 0;
+        grid-template-columns: 18px repeat(12, minmax(0, 1fr)) 18px;
+        grid-template-rows: 18px repeat(8, auto) 18px;
+        gap: 2px;
+      }
+      .well { min-height: 0; aspect-ratio: 1 / 1; }
+      .left-panel { gap: 7px; }
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <div class="top">
+      <h1>96孔板设计器（by HZC）</h1>
+      <div class="status">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">核心功能就绪</span>
+      </div>
+    </div>
+
+    <div class="workspace">
+      <div class="left-panel">
+        <div class="card">
+          <div class="section-title">
+            <span>组别与基因列表</span>
+            <span class="pill">先设置列表，再点击分配</span>
+          </div>
+
+          <div class="list-subtitle">
+            <span>组别 / 样本列表</span>
+            <span class="pill" id="groupCatalogCount">0 个</span>
+          </div>
+          <div class="list-setting-row">
+            <input id="newGroupInput" placeholder="输入组别，如 S1">
+            <button type="button" onclick="addGroupToCatalog()">添加</button>
+          </div>
+          <div id="groupCatalog" class="group-catalog"></div>
+
+          <div class="list-subtitle">
+            <span>基因列表</span>
+            <span class="pill" id="geneCatalogCount">13 个</span>
+          </div>
+          <div class="list-setting-row">
+            <input id="newGeneInput" placeholder="输入新基因">
+            <button type="button" onclick="addGeneToCatalog()">添加</button>
+          </div>
+          <div id="geneCatalog" class="gene-catalog"></div>
+
+          <div class="list-tools">
+            <button class="secondary" onclick="document.getElementById('setupListFileInput').click()">导入组别+基因信息</button>
+            <button class="secondary" onclick="exportSetupLists()">导出组别+基因信息</button>
+          </div>
+          <input id="setupListFileInput" type="file" accept=".json,application/json" style="display:none"
+                 onchange="loadSetupListsFile(event)">
+
+          <div class="list-help">
+            先在孔板中选中一个或多个孔位，再直接点击上方组别或基因条目即可写入。已经在孔板上使用过的条目会显示为淡灰色。
+          </div>
+
+          <div class="btn-row-2">
+            <button class="secondary" onclick="clearSelection()">取消选择</button>
+            <button class="secondary" onclick="clearSelectedAssignments()">清除孔位</button>
+            <button class="danger" onclick="resetPlate()">重置</button>
+          </div>
+        </div>
+
+        <div class="compact-summary">
+          <div class="mini"><div class="mini-label">已选孔</div><div class="mini-value" id="selectedBox">0</div></div>
+          <div class="mini"><div class="mini-label">已分配</div><div class="mini-value" id="assignedBox">0</div></div>
+          <div class="mini"><div class="mini-label">组别</div><div class="mini-value" id="groupBox">0</div></div>
+          <div class="mini"><div class="mini-label">基因</div><div class="mini-value" id="geneBox">0</div></div>
+        </div>
+
+        <div class="card">
+          <div class="section-title"><span>设计文件</span><span class="pill">可继续编辑</span></div>
+          <div class="btn-row-2" style="margin-top:0;">
+            <button class="secondary" onclick="exportDesign()">导出设计</button>
+            <button class="secondary" onclick="document.getElementById('designFileInput').click()">加载设计</button>
+            <button class="secondary" onclick="saveDesignToBrowser()">浏览器保存</button>
+          </div>
+          <div style="margin-top:6px;">
+            <button class="secondary" style="width:100%;" onclick="loadDesignFromBrowser()">载入浏览器保存的设计</button>
+          </div>
+          <input id="designFileInput" type="file" accept=".json,application/json" style="display:none" onchange="loadDesignFile(event)">
+        </div>
+
+        <div id="messageBox" class="msg"></div>
+
+        <div id="detailCard" class="detail-card">
+          <div class="detail-title" id="detailTitle"></div>
+          <div id="detailBody"></div>
+        </div>
+
+        <div class="runtime-card" id="runtimeCard">
+          <div class="runtime-row">
+            <div class="runtime-main">
+              <div class="runtime-stage" id="runtimeStage">Pyodide：准备检测</div>
+              <div class="runtime-detail" id="runtimeDetail">孔板编辑功能无需等待 Pyodide，可立即使用。</div>
+            </div>
+            <div class="runtime-percent" id="runtimePercent">0%</div>
+          </div>
+          <div class="progress-track"><div class="progress-bar" id="runtimeProgress"></div></div>
+          <div class="runtime-actions">
+            <button class="secondary" type="button" onclick="toggleDiagnosticLog()">诊断详情</button>
+            <button class="secondary" type="button" onclick="retryPyodide()">重新检测</button>
+            <button class="secondary" type="button" onclick="copyDiagnosticLog()">复制诊断日志</button>
+          </div>
+          <div class="diag-log" id="diagnosticLog"></div>
+        </div>
+      </div>
+
+      <div class="right-panel">
+        <div class="plate-card">
+          <div class="plate-head">
+            <div class="view-tabs">
+              <button id="normalViewBtn" class="secondary active" onclick="setPlateView('normal')">正向孔板</button>
+              <button id="rotatedViewBtn" class="secondary" onclick="setPlateView('rotated')">旋转180°</button>
+            </div>
+            <div class="plate-actions">
+              <button class="secondary" onclick="downloadActivePlate('svg')">导出 SVG</button>
+              <button class="secondary" onclick="downloadActivePlate('png')">导出 PNG</button>
+            </div>
+          </div>
+          <div id="plateNormalWrap" class="plate-view active">
+            <div class="plate-scroll"><div id="plateNormal" class="plate-grid"></div></div>
+            <div id="legendNormal" class="legend"></div>
+          </div>
+          <div id="plateRotatedWrap" class="plate-view">
+            <div class="plate-scroll"><div id="plateRotated" class="plate-grid"></div></div>
+            <div id="legendRotated" class="legend"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let pyodide = null;
+    let pyodideReady = false;
+    let pyodideAttemptId = 0;
+    let pyodideLoading = false;
+    let diagnosticLines = [];
+    let currentRuntimeStep = "尚未开始";
+    const PYODIDE_VERSION = "0.26.4";
+    const PYODIDE_CDNS = [
+      {
+        name: "jsDelivr",
+        script: `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/pyodide.js`,
+        indexURL: `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`
+      },
+      {
+        name: "unpkg",
+        script: `https://unpkg.com/pyodide@${PYODIDE_VERSION}/pyodide.js`,
+        indexURL: `https://unpkg.com/pyodide@${PYODIDE_VERSION}/`
+      }
+    ];
+
+    const ROWS = ["A","B","C","D","E","F","G","H"];
+    const COLS = ["1","2","3","4","5","6","7","8","9","10","11","12"];
+    const GENE_HUES = [214, 142, 42, 354, 263, 179, 305, 25, 196, 97, 50, 330, 230];
+    const DEFAULT_GENES = [
+      "AMACR",
+      "DLX1",
+      "FOXA1",
+      "HOXB13",
+      "HOXC6",
+      "KLK3",
+      "MALAT1",
+      "PCA3",
+      "PSCA",
+      "PSGR",
+      "PSMA",
+      "SPDEF",
+      "U-T"
+    ];
+    const GENE_LIST_FORMAT = "HZC_96WELL_GENE_LIST";
+    const GENE_LIST_VERSION = 1;
+
+    const assignments = {};
+    const selectedWells = new Set();
+    let dragActive = false;
+    let dragViewType = "normal";
+    let dragStartDisplayWell = null;
+    let dragCurrentDisplayWell = null;
+    let dragBaseSelection = new Set();
+    let dragMode = "select";
+    let groupHistory = loadHistory("plate_group_history");
+    let geneHistory = loadHistory("plate_gene_history");
+    let groupCatalog = loadGroupCatalog();
+    let geneCatalog = loadGeneCatalog();
+    let activePlateView = "normal";
+    const SETUP_LIST_FORMAT = "HZC_96WELL_SETUP_LISTS";
+    const SETUP_LIST_VERSION = 1;
+    const DESIGN_FORMAT = "HZC_96WELL_DESIGN";
+    const DESIGN_VERSION = 1;
+
+    const pythonCode = String.raw`
+import json
+
+ROWS = list("ABCDEFGH")
+COLS = [str(i) for i in range(1, 13)]
+
+def rotate_well(well):
+    well = str(well).strip().upper()
+    row = well[0]
+    col = well[1:]
+    r = ROWS.index(row)
+    c = COLS.index(col)
+    return f"{ROWS[7-r]}{COLS[11-c]}"
+
+def build_meta():
+    out = {}
+    for r in ROWS:
+        for c in COLS:
+            well = f"{r}{c}"
+            out[well] = {"well": well, "rotatedWell": rotate_well(well)}
+    return json.dumps(out, ensure_ascii=False)
+`;
+
+    function diagTime() {
+      const d = new Date();
+      const pad = n => String(n).padStart(2, "0");
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, "0")}`;
+    }
+
+    function addDiagnostic(message, level = "INFO") {
+      const line = `[${diagTime()}] [${level}] ${message}`;
+      diagnosticLines.push(line);
+      if (diagnosticLines.length > 300) diagnosticLines.shift();
+
+      const box = document.getElementById("diagnosticLog");
+      if (box) {
+        box.textContent = diagnosticLines.join("\n");
+        box.scrollTop = box.scrollHeight;
+      }
+    }
+
+    function setRuntimeProgress(percent, stage, detail = "", isError = false) {
+      const p = Math.max(0, Math.min(100, Number(percent) || 0));
+      currentRuntimeStep = stage || currentRuntimeStep;
+
+      const stageEl = document.getElementById("runtimeStage");
+      const detailEl = document.getElementById("runtimeDetail");
+      const percentEl = document.getElementById("runtimePercent");
+      const bar = document.getElementById("runtimeProgress");
+
+      if (stageEl) stageEl.textContent = stage;
+      if (detailEl) detailEl.textContent = detail;
+      if (percentEl) percentEl.textContent = `${Math.round(p)}%`;
+
+      if (bar) {
+        bar.style.width = `${p}%`;
+        bar.classList.toggle("error", !!isError);
+      }
+    }
+
+    function toggleDiagnosticLog() {
+      const box = document.getElementById("diagnosticLog");
+      if (box) box.classList.toggle("show");
+    }
+
+    async function copyDiagnosticLog() {
+      const logText = diagnosticLines.join("\n") || "暂无诊断日志";
+
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(logText);
+          showMessage("诊断日志已复制");
+          return;
+        }
+      } catch (_) {}
+
+      const ta = document.createElement("textarea");
+      ta.value = logText;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+
+      try {
+        document.execCommand("copy");
+        showMessage("诊断日志已复制");
+      } catch (_) {
+        showMessage("自动复制失败，请展开诊断详情后手动复制");
+      } finally {
+        ta.remove();
+      }
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function promiseWithTimeout(promise, ms, label) {
+      let timer = null;
+
+      const timeoutPromise = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error(`${label}超过 ${Math.round(ms / 1000)} 秒仍未完成`));
+        }, ms);
+      });
+
+      return Promise.race([promise, timeoutPromise]).finally(() => {
+        if (timer) clearTimeout(timer);
+      });
+    }
+
+    function removeDynamicPyodideScripts() {
+      document.querySelectorAll("script[data-hzc-pyodide]").forEach(el => el.remove());
+    }
+
+    function loadExternalScript(url, timeoutMs, attemptId) {
+      return new Promise((resolve, reject) => {
+        const started = performance.now();
+        const script = document.createElement("script");
+
+        script.src = url;
+        script.async = true;
+        script.dataset.hzcPyodide = "1";
+
+        const timer = setTimeout(() => {
+          script.remove();
+          reject(new Error(`启动脚本下载超时（>${Math.round(timeoutMs / 1000)}秒）`));
+        }, timeoutMs);
+
+        script.onload = () => {
+          clearTimeout(timer);
+
+          if (attemptId !== pyodideAttemptId) {
+            reject(new Error("该加载任务已被新的重试替代"));
+            return;
+          }
+
+          resolve(Math.round(performance.now() - started));
+        };
+
+        script.onerror = () => {
+          clearTimeout(timer);
+          reject(new Error("启动脚本下载失败，可能是网络、DNS、CDN访问或安全软件拦截"));
+        };
+
+        document.head.appendChild(script);
+      });
+    }
+
+    function describeEnvironment() {
+      [
+        `页面协议: ${location.protocol}`,
+        `在线状态: ${navigator.onLine ? "online" : "offline"}`,
+        `浏览器: ${navigator.userAgent}`,
+        `语言: ${navigator.language || "unknown"}`,
+        `crossOriginIsolated: ${String(window.crossOriginIsolated)}`,
+        `WebAssembly: ${typeof WebAssembly !== "undefined" ? "支持" : "不支持"}`,
+        `当前地址: ${location.href}`
+      ].forEach(x => addDiagnostic(x, "ENV"));
+    }
+
+    async function initPyodideRuntime() {
+      if (pyodideLoading) return;
+
+      const attemptId = ++pyodideAttemptId;
+      pyodideLoading = true;
+      pyodideReady = false;
+      pyodide = null;
+      diagnosticLines = [];
+      removeDynamicPyodideScripts();
+
+      const statusText = document.getElementById("statusText");
+      const statusDot = document.getElementById("statusDot");
+
+      statusDot.className = "dot";
+      statusText.textContent = "核心功能就绪";
+
+      setRuntimeProgress(
+        3,
+        "Pyodide 1/5：环境检查",
+        "正在检查浏览器、网络状态和 WebAssembly 支持。"
+      );
+
+      addDiagnostic(`开始 Pyodide ${PYODIDE_VERSION} 诊断加载`);
+      describeEnvironment();
+
+      if (typeof WebAssembly === "undefined") {
+        const message = "当前浏览器不支持 WebAssembly，Pyodide 无法运行";
+        addDiagnostic(message, "ERROR");
+
+        setRuntimeProgress(
+          3,
+          "Pyodide 加载失败：环境检查",
+          `${message}。孔板编辑功能仍可正常使用。`,
+          true
+        );
+
+        statusDot.className = "dot error";
+        statusText.textContent = "Pyodide异常 · 编辑器可用";
+        pyodideLoading = false;
+        return;
+      }
+
+      addDiagnostic("环境检查通过");
+      setRuntimeProgress(
+        10,
+        "Pyodide 2/5：加载启动脚本",
+        "准备连接 Pyodide CDN。"
+      );
+
+      let selectedCDN = null;
+      let lastScriptError = null;
+
+      for (let i = 0; i < PYODIDE_CDNS.length; i++) {
+        if (attemptId !== pyodideAttemptId) return;
+
+        const cdn = PYODIDE_CDNS[i];
+
+        try {
+          setRuntimeProgress(
+            12 + i * 8,
+            "Pyodide 2/5：下载 pyodide.js",
+            `正在尝试 ${cdn.name}：${cdn.script}`
+          );
+
+          addDiagnostic(`尝试启动脚本 CDN: ${cdn.name} ${cdn.script}`);
+
+          try {
+            window.loadPyodide = undefined;
+          } catch (_) {}
+
+          const elapsed = await loadExternalScript(cdn.script, 20000, attemptId);
+
+          if (typeof loadPyodide !== "function") {
+            throw new Error("pyodide.js 已下载，但全局 loadPyodide() 未出现");
+          }
+
+          selectedCDN = cdn;
+          addDiagnostic(`${cdn.name} 启动脚本加载成功，耗时 ${elapsed} ms`);
+          break;
+        } catch (err) {
+          lastScriptError = err;
+          addDiagnostic(`${cdn.name} 启动脚本失败: ${err.message}`, "WARN");
+        }
+      }
+
+      if (!selectedCDN) {
+        const message = lastScriptError
+          ? lastScriptError.message
+          : "所有启动脚本 CDN 均不可用";
+
+        addDiagnostic(`节点失败：pyodide.js 启动脚本。${message}`, "ERROR");
+
+        setRuntimeProgress(
+          24,
+          "Pyodide 加载失败：启动脚本",
+          `${message}。孔板编辑、保存、加载和图片导出仍可正常使用。`,
+          true
+        );
+
+        statusDot.className = "dot error";
+        statusText.textContent = "Pyodide异常 · 编辑器可用";
+        pyodideLoading = false;
+        return;
+      }
+
+      if (attemptId !== pyodideAttemptId) return;
+
+      setRuntimeProgress(
+        35,
+        "Pyodide 3/5：初始化 Python 运行时",
+        `启动脚本已完成，正在从 ${selectedCDN.name} 加载 WebAssembly 和标准运行时文件。`
+      );
+
+      addDiagnostic(`调用 loadPyodide()，indexURL=${selectedCDN.indexURL}`);
+
+      const slowTimer1 = setTimeout(() => {
+        if (attemptId !== pyodideAttemptId || pyodideReady) return;
+
+        setRuntimeProgress(
+          48,
+          "Pyodide 3/5：初始化仍在进行",
+          "已超过 10 秒。通常正在下载或编译 WebAssembly；若长期停在此处，多为 CDN、网络代理、安全软件或 WASM 加载受限。"
+        );
+
+        addDiagnostic("loadPyodide() 已运行超过 10 秒，仍未完成", "WARN");
+      }, 10000);
+
+      const slowTimer2 = setTimeout(() => {
+        if (attemptId !== pyodideAttemptId || pyodideReady) return;
+
+        setRuntimeProgress(
+          55,
+          "Pyodide 3/5：初始化明显偏慢",
+          "已超过 25 秒。请展开“诊断详情”查看 CDN 和环境信息；60 秒后会判定为超时。"
+        );
+
+        addDiagnostic("loadPyodide() 已运行超过 25 秒，仍未完成", "WARN");
+      }, 25000);
+
+      try {
+        const started = performance.now();
+
+        pyodide = await promiseWithTimeout(
+          loadPyodide({
+            indexURL: selectedCDN.indexURL,
+            stdout: msg => addDiagnostic(`Python stdout: ${msg}`, "PY"),
+            stderr: msg => addDiagnostic(`Python stderr: ${msg}`, "PYERR")
+          }),
+          60000,
+          "Pyodide Python 运行时初始化"
+        );
+
+        clearTimeout(slowTimer1);
+        clearTimeout(slowTimer2);
+
+        if (attemptId !== pyodideAttemptId) return;
+
+        addDiagnostic(
+          `loadPyodide() 完成，耗时 ${Math.round(performance.now() - started)} ms`
+        );
+
+        setRuntimeProgress(
+          78,
+          "Pyodide 4/5：执行 Python 自检",
+          "Python 运行时已启动，正在加载孔位映射测试代码。"
+        );
+
+        const testStarted = performance.now();
+
+        await promiseWithTimeout(
+          pyodide.runPythonAsync(pythonCode),
+          15000,
+          "Python 自检代码执行"
+        );
+
+        addDiagnostic(
+          `Python 自检代码执行完成，耗时 ${Math.round(performance.now() - testStarted)} ms`
+        );
+
+        if (attemptId !== pyodideAttemptId) return;
+
+        setRuntimeProgress(
+          92,
+          "Pyodide 5/5：校验孔位映射",
+          "正在比较 Python 与 JavaScript 的 96 孔旋转映射。"
+        );
+
+        const metaJson = pyodide.runPython("build_meta()");
+        const meta = JSON.parse(metaJson);
+
+        const probes = ["A1", "A12", "D6", "E7", "H1", "H12"];
+        const mismatch = probes.find(
+          w => !meta[w] || meta[w].rotatedWell !== rotateWell(w)
+        );
+
+        if (mismatch) {
+          throw new Error(`孔位映射自检不一致：${mismatch}`);
+        }
+
+        pyodideReady = true;
+
+        setRuntimeProgress(
+          100,
+          "Pyodide：加载完成",
+          `Pyodide ${PYODIDE_VERSION} 正常，Python 与 JavaScript 孔位映射自检通过。`
+        );
+
+        statusDot.className = "dot ready";
+        statusText.textContent = "Pyodide就绪";
+        addDiagnostic("全部检查通过，Pyodide 可正常使用", "OK");
+      } catch (err) {
+        clearTimeout(slowTimer1);
+        clearTimeout(slowTimer2);
+
+        if (attemptId !== pyodideAttemptId) return;
+
+        const message = err && err.message ? err.message : String(err);
+
+        addDiagnostic(`节点失败：${currentRuntimeStep}`, "ERROR");
+        addDiagnostic(message, "ERROR");
+
+        if (err && err.stack) {
+          addDiagnostic(err.stack, "STACK");
+        }
+
+        const percentText =
+          document.getElementById("runtimePercent")?.textContent || "35";
+
+        const currentPercent =
+          parseInt(percentText.replace("%", ""), 10) || 35;
+
+        setRuntimeProgress(
+          Math.max(35, currentPercent),
+          `Pyodide 加载失败：${currentRuntimeStep.replace(/^Pyodide \d\/5：/, "")}`,
+          `${message}。孔板编辑功能不受影响，可展开诊断详情定位问题。`,
+          true
+        );
+
+        statusDot.className = "dot error";
+        statusText.textContent = "Pyodide异常 · 编辑器可用";
+      } finally {
+        if (attemptId === pyodideAttemptId) {
+          pyodideLoading = false;
+        }
+      }
+    }
+
+    async function retryPyodide() {
+      if (pyodideLoading) {
+        pyodideAttemptId++;
+        pyodideLoading = false;
+        await sleep(50);
+      }
+
+      setRuntimeProgress(
+        0,
+        "Pyodide：重新检测",
+        "重新开始完整诊断流程。"
+      );
+
+      initPyodideRuntime();
+    }
+
+    function renderAll() {
+      renderPlate("normal");
+      renderPlate("rotated");
+      renderLegend("legendNormal");
+      renderLegend("legendRotated");
+      updateSummary();
+      renderGroupCatalog();
+      renderGeneCatalog();
+      syncPlateView();
+    }
+
+    function renderPlate(type) {
+      const box = document.getElementById(type === "normal" ? "plateNormal" : "plateRotated");
+      box.innerHTML = "";
+
+      let cellRows;
+      let cellCols;
+      let topAxis;
+      let bottomAxis;
+      let leftAxis;
+      let rightAxis;
+
+      if (type === "normal") {
+        cellRows = ROWS;
+        cellCols = COLS;
+        topAxis = COLS;
+        bottomAxis = [...COLS].reverse();
+        leftAxis = ROWS;
+        rightAxis = [...ROWS].reverse();
+      } else {
+        // 旋转视角：屏幕左上角仍显示为 A1，但它对应正向孔板的 H12。
+        // 也就是说，显示孔位与真实孔位分离：displayWell 用于显示，sourceWell 用于读取和修改数据。
+        cellRows = ROWS;
+        cellCols = COLS;
+        topAxis = COLS;
+        bottomAxis = [...COLS].reverse();
+        leftAxis = ROWS;
+        rightAxis = [...ROWS].reverse();
+      }
+
+      appendCell(box, "corner", "");
+      topAxis.forEach(col => appendCell(box, "axis-label", col));
+      appendCell(box, "corner", "");
+
+      cellRows.forEach((row, rowIndex) => {
+        appendCell(box, "axis-label", leftAxis[rowIndex]);
+
+        cellCols.forEach(col => {
+          const displayWell = row + col;
+          const sourceWell = sourceWellForView(displayWell, type);
+          const item = assignments[sourceWell];
+          const div = document.createElement("div");
+          div.className = "well" + (!hasContent(item) ? " empty" : "") + (selectedWells.has(sourceWell) ? " selected" : "");
+          div.dataset.well = sourceWell;
+          div.dataset.displayWell = displayWell;
+
+          if (hasContent(item)) {
+            div.style.background = colorForItem(item);
+          }
+
+          if (!hasContent(item)) {
+            div.innerHTML = `<div class="well-id">${escapeHtml(displayWell)}</div>`;
+          } else {
+            div.innerHTML = `
+              <div class="well-id">${escapeHtml(displayWell)}</div>
+              <div class="well-main" title="${escapeHtml(item.group || "-")}">${escapeHtml(item.group || "-")}</div>
+              <div class="well-sub" title="${escapeHtml(item.gene || "-")}">${escapeHtml(item.gene || "-")}</div>
+            `;
+            requestAnimationFrame(() => fitGeneText(div.querySelector(".well-sub")));
+          }
+
+          div.addEventListener("pointerdown", event => startSelect(event, sourceWell, displayWell, type));
+          div.addEventListener("pointerenter", event => dragSelect(event, sourceWell, displayWell, type));
+          div.addEventListener("click", event => event.preventDefault());
+          div.addEventListener("dblclick", () => showDetail(sourceWell, type, displayWell));
+
+          box.appendChild(div);
+        });
+
+        appendCell(box, "axis-label", rightAxis[rowIndex]);
+      });
+
+      appendCell(box, "corner", "");
+      bottomAxis.forEach(col => appendCell(box, "axis-label", col));
+      appendCell(box, "corner", "");
+    }
+
+    function appendCell(parent, className, text) {
+      const div = document.createElement("div");
+      div.className = className;
+      div.textContent = text;
+      parent.appendChild(div);
+    }
+
+    function fitGeneText(el) {
+      if (!el) return;
+
+      el.style.transform = "";
+      el.style.fontSize = "";
+
+      const available = el.clientWidth;
+      const needed = el.scrollWidth;
+
+      if (!available || !needed || needed <= available) return;
+
+      // 优先按比例缩小字体，最低约为原字号的 62%；
+      // 极长名称仍保留完整文本，并进一步横向压缩，避免被截断。
+      const ratio = available / needed;
+      const currentSize = parseFloat(getComputedStyle(el).fontSize) || 10;
+      const minSize = Math.max(5, currentSize * 0.62);
+      const targetSize = Math.max(minSize, currentSize * ratio);
+
+      el.style.fontSize = `${targetSize}px`;
+
+      requestAnimationFrame(() => {
+        const available2 = el.clientWidth;
+        const needed2 = el.scrollWidth;
+
+        if (available2 && needed2 > available2) {
+          const scaleX = Math.max(0.72, available2 / needed2);
+          el.style.transform = `scaleX(${scaleX})`;
+        }
+      });
+    }
+
+    function startSelect(event, sourceWell, displayWell, type) {
+      if (event.button !== 0) return;
+      event.preventDefault();
+
+      dragActive = true;
+      dragViewType = type;
+      dragStartDisplayWell = displayWell;
+      dragCurrentDisplayWell = displayWell;
+      dragBaseSelection = new Set(selectedWells);
+
+      // Excel式逻辑：
+      // 从未选中的孔开始拖动：选中矩形区域；
+      // 从已选中的孔开始拖动：取消该矩形区域。
+      dragMode = selectedWells.has(sourceWell) ? "remove" : "select";
+
+      applyRectSelection();
+    }
+
+    function dragSelect(event, sourceWell, displayWell, type) {
+      if (!dragActive) return;
+      if (type !== dragViewType) return;
+      event.preventDefault();
+
+      dragCurrentDisplayWell = displayWell;
+      applyRectSelection();
+    }
+
+    window.addEventListener("pointermove", event => {
+      if (!dragActive) return;
+
+      const el = document.elementFromPoint(event.clientX, event.clientY);
+      const wellEl = el ? el.closest(".well[data-well][data-display-well]") : null;
+      if (!wellEl) return;
+
+      const parent = wellEl.closest(".plate-grid");
+      if (!parent) return;
+
+      const type = parent.id === "plateRotated" ? "rotated" : "normal";
+      if (type !== dragViewType) return;
+
+      const displayWell = wellEl.dataset.displayWell;
+      if (!displayWell || displayWell === dragCurrentDisplayWell) return;
+
+      dragCurrentDisplayWell = displayWell;
+      applyRectSelection();
+    });
+
+    window.addEventListener("pointerup", () => {
+      dragActive = false;
+      dragStartDisplayWell = null;
+      dragCurrentDisplayWell = null;
+      dragBaseSelection = new Set();
+    });
+
+    window.addEventListener("pointercancel", () => {
+      dragActive = false;
+      dragStartDisplayWell = null;
+      dragCurrentDisplayWell = null;
+      dragBaseSelection = new Set();
+    });
+
+    let plateResizeTimer = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(plateResizeTimer);
+      plateResizeTimer = setTimeout(() => {
+        document.querySelectorAll(".well-sub").forEach(fitGeneText);
+      }, 80);
+    });
+
+    function applyRectSelection() {
+      if (!dragStartDisplayWell || !dragCurrentDisplayWell) return;
+
+      const rectDisplayWells = getRectDisplayWells(
+        dragStartDisplayWell,
+        dragCurrentDisplayWell
+      );
+
+      const rectSourceWells = rectDisplayWells.map(displayWell =>
+        sourceWellForView(displayWell, dragViewType)
+      );
+
+      // 每次都从拖动开始前的选区重算，避免形成“鼠标轨迹”式选区
+      selectedWells.clear();
+      dragBaseSelection.forEach(well => selectedWells.add(well));
+
+      if (dragMode === "select") {
+        rectSourceWells.forEach(well => selectedWells.add(well));
+      } else {
+        rectSourceWells.forEach(well => selectedWells.delete(well));
+      }
+
+      refreshAllSelectedVisuals();
+      updateSummary();
+    }
+
+    function getRectDisplayWells(startWell, endWell) {
+      const startRow = ROWS.indexOf(startWell[0]);
+      const startCol = COLS.indexOf(startWell.slice(1));
+      const endRow = ROWS.indexOf(endWell[0]);
+      const endCol = COLS.indexOf(endWell.slice(1));
+
+      if (startRow < 0 || startCol < 0 || endRow < 0 || endCol < 0) {
+        return [];
+      }
+
+      const rowMin = Math.min(startRow, endRow);
+      const rowMax = Math.max(startRow, endRow);
+      const colMin = Math.min(startCol, endCol);
+      const colMax = Math.max(startCol, endCol);
+
+      const wells = [];
+      for (let r = rowMin; r <= rowMax; r++) {
+        for (let c = colMin; c <= colMax; c++) {
+          wells.push(ROWS[r] + COLS[c]);
+        }
+      }
+      return wells;
+    }
+
+    function refreshAllSelectedVisuals() {
+      document.querySelectorAll(".well[data-well]").forEach(el => {
+        el.classList.toggle("selected", selectedWells.has(el.dataset.well));
+      });
+    }
+
+    function updateSelectedVisuals(well) {
+      document.querySelectorAll(`.well[data-well="${CSS.escape(well)}"]`).forEach(el => {
+        el.classList.toggle("selected", selectedWells.has(well));
+      });
+    }
+
+    function assignSelected(mode) {
+      if (selectedWells.size === 0) {
+        showMessage("请先选择孔位");
+        return;
+      }
+
+      const group = document.getElementById("groupInput").value.trim();
+      const gene = document.getElementById("geneInput").value.trim();
+
+      if ((mode === "group" || mode === "both") && !group) {
+        showMessage("请填写组别或样本标签");
+        return;
+      }
+
+      if ((mode === "gene" || mode === "both") && !gene) {
+        showMessage("请填写目标基因");
+        return;
+      }
+
+      selectedWells.forEach(well => {
+        const old = assignments[well] || { well, rotatedWell: rotateWell(well), group: "", gene: "" };
+
+        assignments[well] = {
+          well,
+          rotatedWell: rotateWell(well),
+          group: (mode === "group" || mode === "both") ? group : old.group,
+          gene: (mode === "gene" || mode === "both") ? gene : old.gene
+        };
+
+        if (!hasContent(assignments[well])) {
+          delete assignments[well];
+        }
+      });
+
+      if (group && (mode === "group" || mode === "both")) addHistory("group", group);
+      if (gene && (mode === "gene" || mode === "both")) addHistory("gene", gene);
+
+      selectedWells.clear();
+      showMessage("");
+      renderAll();
+    }
+
+    function clearSelection() {
+      selectedWells.clear();
+      renderAll();
+    }
+
+    function clearSelectedAssignments() {
+      if (selectedWells.size === 0) {
+        showMessage("请先选择要清除的孔位");
+        return;
+      }
+
+      selectedWells.forEach(well => delete assignments[well]);
+      selectedWells.clear();
+      showMessage("");
+      renderAll();
+    }
+
+    function resetPlate() {
+      if (!confirm("确认清空所有孔位设计吗？")) return;
+      Object.keys(assignments).forEach(key => delete assignments[key]);
+      selectedWells.clear();
+      showMessage("");
+      renderAll();
+    }
+
+    function buildDesignData() {
+      const currentAssignments = {};
+
+      Object.entries(assignments).forEach(([well, item]) => {
+        if (!hasContent(item)) return;
+
+        currentAssignments[well] = {
+          well: well,
+          rotatedWell: item.rotatedWell || rotateWell(well),
+          group: String(item.group || ""),
+          gene: String(item.gene || "")
+        };
+      });
+
+      return {
+        format: DESIGN_FORMAT,
+        version: DESIGN_VERSION,
+        exportedAt: new Date().toISOString(),
+        plateType: "96-well",
+        assignments: currentAssignments,
+        groupHistory: Array.isArray(groupHistory) ? [...groupHistory] : [],
+        geneHistory: Array.isArray(geneHistory) ? [...geneHistory] : [],
+        groupCatalog: [...groupCatalog],
+        geneCatalog: geneCatalog.map(item => ({ name: item.name, hue: item.hue }))
+      };
+    }
+
+    function exportDesign() {
+      const data = buildDesignData();
+      const now = new Date();
+      const pad = n => String(n).padStart(2, "0");
+      const stamp = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+      const filename = `96孔板设计_${stamp}.json`;
+
+      downloadText(
+        JSON.stringify(data, null, 2),
+        filename,
+        "application/json;charset=utf-8"
+      );
+
+      showMessage(`设计已导出：${Object.keys(data.assignments).length} 个已分配孔位`);
+    }
+
+    function validateDesignData(data) {
+      if (!data || typeof data !== "object") {
+        throw new Error("设计文件格式无效");
+      }
+
+      if (data.format !== DESIGN_FORMAT) {
+        throw new Error("这不是本设计器导出的设计文件");
+      }
+
+      if (typeof data.assignments !== "object" || data.assignments === null || Array.isArray(data.assignments)) {
+        throw new Error("设计文件中的孔位数据无效");
+      }
+
+      const validWells = new Set(ROWS.flatMap(r => COLS.map(c => r + c)));
+
+      Object.entries(data.assignments).forEach(([well, item]) => {
+        if (!validWells.has(well)) {
+          throw new Error(`设计文件包含无效孔位：${well}`);
+        }
+
+        if (!item || typeof item !== "object") {
+          throw new Error(`孔位 ${well} 的数据无效`);
+        }
+      });
+
+      return true;
+    }
+
+    function applyLoadedDesign(data) {
+      validateDesignData(data);
+
+      Object.keys(assignments).forEach(key => delete assignments[key]);
+
+      Object.entries(data.assignments).forEach(([well, item]) => {
+        const group = String(item.group || "").trim();
+        const gene = String(item.gene || "").trim();
+        if (!group && !gene) return;
+
+        assignments[well] = {
+          well,
+          rotatedWell: rotateWell(well),
+          group,
+          gene
+        };
+      });
+
+      if (Array.isArray(data.groupHistory)) {
+        groupHistory = unique([...data.groupHistory, ...groupHistory]).slice(0, 100);
+        saveHistory("plate_group_history", groupHistory);
+      }
+
+      if (Array.isArray(data.groupCatalog)) {
+        const importedGroups = normalizeGroupCatalog(data.groupCatalog);
+        importedGroups.forEach(group => {
+          if (!groupCatalog.includes(group)) groupCatalog.push(group);
+        });
+        saveGroupCatalog();
+      } else {
+        Object.values(assignments).forEach(item => {
+          const group = String(item.group || "").trim();
+          if (group && !groupCatalog.includes(group)) groupCatalog.push(group);
+        });
+        saveGroupCatalog();
+      }
+
+      if (Array.isArray(data.geneHistory)) {
+        geneHistory = unique([...geneHistory, ...data.geneHistory]).slice(0, 60);
+        saveHistory("plate_gene_history", geneHistory);
+      }
+
+      if (Array.isArray(data.geneCatalog) && data.geneCatalog.length) {
+        geneCatalog = normalizeGeneCatalog(data.geneCatalog);
+        saveGeneCatalog();
+      } else {
+        Object.values(assignments).forEach(item => {
+          const gene = String(item.gene || "").trim();
+          if (gene && !geneCatalog.some(x => x.name === gene)) {
+            geneCatalog.push({ name: gene, hue: GENE_HUES[geneCatalog.length % GENE_HUES.length] });
+          }
+        });
+        saveGeneCatalog();
+      }
+
+      selectedWells.clear();
+      const detailCard = document.getElementById("detailCard");
+      if (detailCard) detailCard.className = "detail-card";
+
+      renderAll();
+      showMessage(`设计已加载：${Object.keys(assignments).length} 个孔位，可直接继续修改`);
+    }
+
+    function loadDesignFile(event) {
+      const input = event.target;
+      const file = input.files && input.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function() {
+        try {
+          const data = JSON.parse(reader.result);
+          applyLoadedDesign(data);
+        } catch (err) {
+          showMessage("加载失败：" + (err && err.message ? err.message : "无法读取设计文件"));
+        } finally {
+          input.value = "";
+        }
+      };
+      reader.onerror = function() {
+        showMessage("加载失败：无法读取文件");
+        input.value = "";
+      };
+      reader.readAsText(file, "utf-8");
+    }
+
+    function saveDesignToBrowser() {
+      try {
+        const data = buildDesignData();
+        localStorage.setItem("hzc_96well_saved_design", JSON.stringify(data));
+        showMessage(`已保存到浏览器：${Object.keys(data.assignments).length} 个孔位`);
+      } catch (err) {
+        showMessage("保存到浏览器失败");
+      }
+    }
+
+    function loadDesignFromBrowser() {
+      try {
+        const raw = localStorage.getItem("hzc_96well_saved_design");
+        if (!raw) {
+          showMessage("浏览器中没有已保存的设计");
+          return;
+        }
+        applyLoadedDesign(JSON.parse(raw));
+      } catch (err) {
+        showMessage("浏览器设计加载失败：" + (err && err.message ? err.message : ""));
+      }
+    }
+
+    function updateSummary() {
+      const validItems = Object.values(assignments).filter(hasContent);
+      const groups = unique(validItems.map(x => x.group));
+      const genes = unique(validItems.map(x => x.gene));
+
+      document.getElementById("selectedBox").textContent = selectedWells.size;
+      document.getElementById("assignedBox").textContent = validItems.length;
+      document.getElementById("groupBox").textContent = groups.length;
+      document.getElementById("geneBox").textContent = genes.length;
+    }
+
+    function updateDatalists() {
+      const validItems = Object.values(assignments).filter(hasContent);
+      const groups = unique([...groupHistory, ...validItems.map(x => x.group)]);
+
+      document.getElementById("groupList").innerHTML = groups.map(x => `<option value="${escapeHtml(x)}"></option>`).join("");
+      renderGeneDropdown(false);
+    }
+
+
+    function getGeneCandidates() {
+      return geneCatalog.map(item => item.name);
+    }
+
+    function normalizeGroupCatalog(rawGroups) {
+      const seen = new Set();
+      const result = [];
+
+      (Array.isArray(rawGroups) ? rawGroups : []).forEach(entry => {
+        const name = String(
+          typeof entry === "string" ? entry : (entry && entry.name ? entry.name : "")
+        ).trim();
+
+        if (!name || seen.has(name)) return;
+        seen.add(name);
+        result.push(name);
+      });
+
+      return result;
+    }
+
+    function loadGroupCatalog() {
+      try {
+        const raw = localStorage.getItem("hzc_96well_group_catalog");
+        if (raw) {
+          const parsed = normalizeGroupCatalog(JSON.parse(raw));
+          if (parsed.length) return parsed;
+        }
+      } catch (_) {}
+
+      return unique(groupHistory || []);
+    }
+
+    function saveGroupCatalog() {
+      try {
+        localStorage.setItem(
+          "hzc_96well_group_catalog",
+          JSON.stringify(groupCatalog)
+        );
+      } catch (_) {}
+    }
+
+    function renderGroupCatalog() {
+      const box = document.getElementById("groupCatalog");
+      const count = document.getElementById("groupCatalogCount");
+      if (!box) return;
+
+      const usedGroups = new Set(
+        Object.values(assignments)
+          .filter(hasContent)
+          .map(item => String(item.group || "").trim())
+          .filter(Boolean)
+      );
+
+      box.innerHTML = groupCatalog.map(group => `
+        <div class="group-catalog-item${usedGroups.has(group) ? " used" : ""}"
+             onclick="assignCatalogValue('group', '${escapeJs(group)}')"
+             title="点击将 ${escapeHtml(group)} 分配到当前选中孔位">
+          <span class="catalog-label">${escapeHtml(group)}</span>
+          <button type="button" class="catalog-remove"
+                  title="从组别列表删除"
+                  onclick="event.stopPropagation(); removeGroupFromCatalog('${escapeJs(group)}')">×</button>
+        </div>
+      `).join("");
+
+      if (!groupCatalog.length) {
+        box.innerHTML = `<div class="dropdown-empty">尚未设置组别，请先添加。</div>`;
+      }
+
+      if (count) count.textContent = `${groupCatalog.length} 个`;
+    }
+
+    function addGroupToCatalog() {
+      const input = document.getElementById("newGroupInput");
+      if (!input) return;
+
+      const value = String(input.value || "").trim();
+      if (!value) {
+        showMessage("请输入要添加的组别 / 样本名称");
+        return;
+      }
+
+      if (!groupCatalog.includes(value)) {
+        groupCatalog.push(value);
+        groupHistory = unique([...groupHistory, value]).slice(0, 100);
+        saveHistory("plate_group_history", groupHistory);
+        saveGroupCatalog();
+      }
+
+      input.value = "";
+      renderGroupCatalog();
+      showMessage("");
+    }
+
+    function removeGroupFromCatalog(group) {
+      groupCatalog = groupCatalog.filter(x => x !== group);
+      saveGroupCatalog();
+      renderGroupCatalog();
+    }
+
+    function addGeneToCatalog() {
+      const input = document.getElementById("newGeneInput");
+      if (!input) return;
+
+      const value = String(input.value || "").trim();
+      if (!value) {
+        showMessage("请输入要添加的基因名称");
+        return;
+      }
+
+      if (!geneCatalog.some(item => item.name === value)) {
+        geneCatalog.push({
+          name: value,
+          hue: GENE_HUES[geneCatalog.length % GENE_HUES.length]
+        });
+        geneHistory = unique([...geneHistory, value]).slice(0, 100);
+        saveHistory("plate_gene_history", geneHistory);
+        saveGeneCatalog();
+      }
+
+      input.value = "";
+      renderGeneCatalog();
+      showMessage("");
+    }
+
+    function removeGeneFromCatalog(gene) {
+      geneCatalog = geneCatalog.filter(item => item.name !== gene);
+      saveGeneCatalog();
+      renderGeneCatalog();
+      renderLegend("legendNormal");
+      renderLegend("legendRotated");
+    }
+
+    function assignCatalogValue(type, value) {
+      value = String(value || "").trim();
+
+      if (!value) return;
+
+      if (selectedWells.size === 0) {
+        showMessage("请先在右侧孔板选择一个或多个孔位");
+        return;
+      }
+
+      selectedWells.forEach(well => {
+        const old = assignments[well] || {
+          well,
+          rotatedWell: rotateWell(well),
+          group: "",
+          gene: ""
+        };
+
+        assignments[well] = {
+          well,
+          rotatedWell: rotateWell(well),
+          group: type === "group" ? value : old.group,
+          gene: type === "gene" ? value : old.gene
+        };
+      });
+
+      if (type === "group") {
+        if (!groupCatalog.includes(value)) {
+          groupCatalog.push(value);
+          saveGroupCatalog();
+        }
+      } else {
+        if (!geneCatalog.some(item => item.name === value)) {
+          geneCatalog.push({
+            name: value,
+            hue: GENE_HUES[geneCatalog.length % GENE_HUES.length]
+          });
+          saveGeneCatalog();
+        }
+      }
+
+      // 每次完成组别或基因分配后，自动取消当前框选，
+      // 便于直接开始选择下一批孔位。
+      selectedWells.clear();
+      showMessage("");
+      renderAll();
+    }
+
+    function exportSetupLists() {
+      const data = {
+        format: SETUP_LIST_FORMAT,
+        version: SETUP_LIST_VERSION,
+        exportedAt: new Date().toISOString(),
+        groups: [...groupCatalog],
+        genes: geneCatalog.map(item => ({
+          name: item.name,
+          hue: item.hue
+        }))
+      };
+
+      downloadText(
+        JSON.stringify(data, null, 2),
+        "96孔板_组别与基因列表.json",
+        "application/json;charset=utf-8"
+      );
+
+      showMessage(`列表已导出：${groupCatalog.length} 个组别，${geneCatalog.length} 个基因`);
+    }
+
+    function loadSetupListsFile(event) {
+      const input = event.target;
+      const file = input.files && input.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+
+      reader.onload = function() {
+        try {
+          const data = JSON.parse(reader.result);
+
+          if (
+            !data ||
+            data.format !== SETUP_LIST_FORMAT ||
+            !Array.isArray(data.groups) ||
+            !Array.isArray(data.genes)
+          ) {
+            throw new Error("这不是本设计器导出的组别+基因列表 JSON");
+          }
+
+          const importedGroups = normalizeGroupCatalog(data.groups);
+          const importedGenes = normalizeGeneCatalog(data.genes);
+
+          // 合并导入：保留当前顺序，新增内容追加到末尾。
+          importedGroups.forEach(group => {
+            if (!groupCatalog.includes(group)) groupCatalog.push(group);
+          });
+
+          importedGenes.forEach(entry => {
+            if (!geneCatalog.some(item => item.name === entry.name)) {
+              geneCatalog.push(entry);
+            }
+          });
+
+          saveGroupCatalog();
+          saveGeneCatalog();
+
+          groupHistory = unique([...groupHistory, ...groupCatalog]).slice(0, 100);
+          geneHistory = unique([...geneHistory, ...geneCatalog.map(x => x.name)]).slice(0, 100);
+          saveHistory("plate_group_history", groupHistory);
+          saveHistory("plate_gene_history", geneHistory);
+
+          renderAll();
+          showMessage(`列表已合并导入：当前共 ${groupCatalog.length} 个组别，${geneCatalog.length} 个基因`);
+        } catch (err) {
+          showMessage(
+            "列表导入失败：" +
+            (err && err.message ? err.message : "文件无效")
+          );
+        } finally {
+          input.value = "";
+        }
+      };
+
+      reader.onerror = function() {
+        showMessage("列表导入失败：无法读取文件");
+        input.value = "";
+      };
+
+      reader.readAsText(file, "utf-8");
+    }
+
+    function normalizeGeneCatalog(rawGenes) {
+      const seen = new Set();
+      const result = [];
+
+      (Array.isArray(rawGenes) ? rawGenes : []).forEach((entry, index) => {
+        let name = "";
+        let hue = null;
+
+        if (typeof entry === "string") {
+          name = entry.trim();
+        } else if (entry && typeof entry === "object") {
+          name = String(entry.name || "").trim();
+          const parsedHue = Number(entry.hue);
+          if (Number.isFinite(parsedHue)) hue = ((parsedHue % 360) + 360) % 360;
+        }
+
+        if (!name || seen.has(name)) return;
+        seen.add(name);
+        result.push({
+          name,
+          hue: hue === null ? GENE_HUES[index % GENE_HUES.length] : hue
+        });
+      });
+
+      return result.length ? result : DEFAULT_GENES.map((name, i) => ({
+        name,
+        hue: GENE_HUES[i % GENE_HUES.length]
+      }));
+    }
+
+    function loadGeneCatalog() {
+      try {
+        const raw = localStorage.getItem("hzc_96well_gene_catalog");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          let normalized = normalizeGeneCatalog(parsed);
+          normalized = normalized.map(item =>
+            item.name === "usp9y-ttty15" ? { ...item, name: "U-T" } : item
+          );
+          const seen = new Set();
+          normalized = normalized.filter(item => {
+            if (seen.has(item.name)) return false;
+            seen.add(item.name);
+            return true;
+          });
+          if (normalized.length) return normalized;
+        }
+      } catch (_) {}
+
+      return DEFAULT_GENES.map((name, i) => ({
+        name,
+        hue: GENE_HUES[i % GENE_HUES.length]
+      }));
+    }
+
+    function saveGeneCatalog() {
+      try {
+        localStorage.setItem("hzc_96well_gene_catalog", JSON.stringify(geneCatalog));
+      } catch (_) {}
+    }
+
+    function renderGeneCatalog() {
+      const box = document.getElementById("geneCatalog");
+      const count = document.getElementById("geneCatalogCount");
+      if (!box) return;
+
+      const usedGenes = new Set(
+        Object.values(assignments)
+          .filter(hasContent)
+          .map(item => String(item.gene || "").trim())
+          .filter(Boolean)
+      );
+
+      box.innerHTML = geneCatalog.map(entry => `
+        <div class="gene-catalog-item${usedGenes.has(entry.name) ? " used" : ""}"
+             onclick="assignCatalogValue('gene', '${escapeJs(entry.name)}')"
+             title="点击将 ${escapeHtml(entry.name)} 分配到当前选中孔位">
+          <span class="gene-color-block" style="background:${geneBaseColor(entry.name)}"></span>
+          <span class="catalog-label">${escapeHtml(entry.name)}</span>
+          <button type="button" class="catalog-remove"
+                  title="从基因列表删除"
+                  onclick="event.stopPropagation(); removeGeneFromCatalog('${escapeJs(entry.name)}')">×</button>
+        </div>
+      `).join("");
+
+      if (!geneCatalog.length) {
+        box.innerHTML = `<div class="dropdown-empty">尚未设置基因，请先添加。</div>`;
+      }
+
+      if (count) count.textContent = `${geneCatalog.length} 个`;
+    }
+
+    function exportGeneList() {
+      const data = {
+        format: GENE_LIST_FORMAT,
+        version: GENE_LIST_VERSION,
+        exportedAt: new Date().toISOString(),
+        genes: geneCatalog.map(item => ({ name: item.name, hue: item.hue }))
+      };
+
+      downloadText(
+        JSON.stringify(data, null, 2),
+        "96孔板_基因列表.json",
+        "application/json;charset=utf-8"
+      );
+      showMessage(`基因列表已导出：${geneCatalog.length} 个基因`);
+    }
+
+    function loadGeneListFile(event) {
+      const input = event.target;
+      const file = input.files && input.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function() {
+        try {
+          const data = JSON.parse(reader.result);
+          if (!data || data.format !== GENE_LIST_FORMAT || !Array.isArray(data.genes)) {
+            throw new Error("这不是本设计器导出的基因列表 JSON");
+          }
+
+          geneCatalog = normalizeGeneCatalog(data.genes);
+          saveGeneCatalog();
+          renderAll();
+          showMessage(`基因列表已导入：${geneCatalog.length} 个基因`);
+        } catch (err) {
+          showMessage("基因列表导入失败：" + (err && err.message ? err.message : "文件无效"));
+        } finally {
+          input.value = "";
+        }
+      };
+
+      reader.onerror = function() {
+        showMessage("基因列表导入失败：无法读取文件");
+        input.value = "";
+      };
+      reader.readAsText(file, "utf-8");
+    }
+
+    function setPlateView(type) {
+      activePlateView = type === "rotated" ? "rotated" : "normal";
+      syncPlateView();
+    }
+
+    function syncPlateView() {
+      const normalWrap = document.getElementById("plateNormalWrap");
+      const rotatedWrap = document.getElementById("plateRotatedWrap");
+      const normalBtn = document.getElementById("normalViewBtn");
+      const rotatedBtn = document.getElementById("rotatedViewBtn");
+
+      if (normalWrap) normalWrap.classList.toggle("active", activePlateView === "normal");
+      if (rotatedWrap) rotatedWrap.classList.toggle("active", activePlateView === "rotated");
+      if (normalBtn) normalBtn.classList.toggle("active", activePlateView === "normal");
+      if (rotatedBtn) rotatedBtn.classList.toggle("active", activePlateView === "rotated");
+    }
+
+    function downloadActivePlate(format) {
+      downloadPlate(activePlateView, format);
+    }
+
+    function showGeneDropdown() {
+      renderGeneDropdown(true);
+    }
+
+    function renderGeneDropdown(forceShow = true) {
+      const box = document.getElementById("geneDropdown");
+      const input = document.getElementById("geneInput");
+      if (!box || !input) return;
+
+      const keyword = String(input.value || "").trim().toLowerCase();
+      const candidates = getGeneCandidates().filter(gene =>
+        !keyword || gene.toLowerCase().includes(keyword)
+      );
+
+      if (!candidates.length) {
+        box.innerHTML = `<div class="dropdown-empty">没有匹配项，可直接输入自定义基因名称</div>`;
+      } else {
+        box.innerHTML = candidates.map(gene => `
+          <button type="button" class="dropdown-item"
+                  onclick="selectGeneCandidate('${escapeJs(gene)}')">${escapeHtml(gene)}</button>
+        `).join("");
+      }
+
+      if (forceShow) {
+        box.classList.add("show");
+      }
+    }
+
+    function selectGeneCandidate(gene) {
+      const input = document.getElementById("geneInput");
+      input.value = gene;
+      document.getElementById("geneDropdown").classList.remove("show");
+      input.focus();
+    }
+
+    function selectGeneFromCatalog(gene) {
+      const input = document.getElementById("geneInput");
+      const dropdown = document.getElementById("geneDropdown");
+      if (!input) return;
+
+      input.value = gene;
+      if (dropdown) dropdown.classList.remove("show");
+
+      // 点击左侧固定基因色块时，不主动 focus 输入框，
+      // 避免 onfocus 再次弹出下拉列表遮挡下面的操作按钮。
+    }
+
+    document.addEventListener("pointerdown", event => {
+      const input = document.getElementById("geneInput");
+      const dropdown = document.getElementById("geneDropdown");
+      if (!input || !dropdown) return;
+
+      if (event.target !== input && !dropdown.contains(event.target)) {
+        dropdown.classList.remove("show");
+      }
+    });
+
+    function renderHistories() {
+      renderHistoryChips("groupHistory", groupHistory, "groupInput");
+    }
+
+    function renderHistoryChips(boxId, items, inputId) {
+      const box = document.getElementById(boxId);
+      box.innerHTML = items.slice(0, 12).map(item => `
+        <span class="chip" onclick="fillInput('${inputId}', '${escapeJs(item)}')">${escapeHtml(item)}</span>
+      `).join("");
+    }
+
+    function fillInput(inputId, value) {
+      document.getElementById(inputId).value = value;
+    }
+
+    function addHistory(type, value) {
+      value = String(value || "").trim();
+      if (!value) return;
+
+      if (type === "group") {
+        groupHistory = [value, ...groupHistory.filter(x => x !== value)].slice(0, 30);
+        saveHistory("plate_group_history", groupHistory);
+      } else {
+        geneHistory = unique([...geneHistory, value]).slice(0, 60);
+        saveHistory("plate_gene_history", geneHistory);
+
+        if (!geneCatalog.some(item => item.name === value)) {
+          geneCatalog.push({
+            name: value,
+            hue: GENE_HUES[geneCatalog.length % GENE_HUES.length]
+          });
+          saveGeneCatalog();
+        }
+      }
+    }
+
+    function renderLegend(id) {
+      const items = Object.values(assignments).filter(hasContent);
+      const box = document.getElementById(id);
+
+      if (!items.length) {
+        box.innerHTML = "";
+        return;
+      }
+
+      const usedGenes = new Set(items.map(x => x.gene).filter(Boolean));
+      let html = "";
+
+      geneCatalog.forEach(entry => {
+        if (!usedGenes.has(entry.name)) return;
+        const groups = unique(items.filter(x => x.gene === entry.name).map(x => x.group));
+        if (!groups.length) groups.push("");
+
+        groups.forEach(group => {
+          const temp = { gene: entry.name, group };
+          html += `
+            <div class="legend-item">
+              <span class="legend-dot" style="background:${colorForItem(temp)}"></span>
+              <span>${escapeHtml(entry.name)} / ${escapeHtml(group || "-")}</span>
+            </div>
+          `;
+        });
+      });
+
+      box.innerHTML = html;
+    }
+
+    function showDetail(well, type, displayWell) {
+      const item = assignments[well];
+      if (!hasContent(item)) return;
+
+      const shownWell = displayWell || well;
+      const card = document.getElementById("detailCard");
+
+      if (type === "rotated") {
+        document.getElementById("detailTitle").textContent = `旋转180°：${shownWell}`;
+        document.getElementById("detailBody").innerHTML = `
+          组别 / 样本：<b>${escapeHtml(item.group || "-")}</b><br>
+          目标基因：<b>${escapeHtml(item.gene || "-")}</b><br>
+          对应正向孔：<b>${escapeHtml(well)}</b>
+        `;
+      } else {
+        document.getElementById("detailTitle").textContent = `正向：${well}`;
+        document.getElementById("detailBody").innerHTML = `
+          组别 / 样本：<b>${escapeHtml(item.group || "-")}</b><br>
+          目标基因：<b>${escapeHtml(item.gene || "-")}</b><br>
+          旋转后显示为：<b>${escapeHtml(item.rotatedWell)}</b>
+        `;
+      }
+
+      card.className = "detail-card show";
+    }
+
+    function rotateWell(well) {
+      const row = well[0];
+      const col = well.slice(1);
+      const r = ROWS.indexOf(row);
+      const c = COLS.indexOf(col);
+      return ROWS[7 - r] + COLS[11 - c];
+    }
+
+    function sourceWellForView(displayWell, type) {
+      return type === "rotated" ? rotateWell(displayWell) : displayWell;
+    }
+
+
+    function getGeneHue(gene) {
+      const idx = geneCatalog.findIndex(item => item.name === gene);
+      if (idx >= 0) return geneCatalog[idx].hue;
+      const fallbackIndex = Math.max(0, DEFAULT_GENES.indexOf(gene));
+      return GENE_HUES[fallbackIndex % GENE_HUES.length];
+    }
+
+    function geneBaseColor(gene) {
+      return `hsl(${getGeneHue(gene)}, 76%, 72%)`;
+    }
+
+    function colorForItem(item) {
+      const gene = item.gene || "__未设基因__";
+      const group = item.group || "__未设组别__";
+      const hue = gene === "__未设基因__" ? 210 : getGeneHue(gene);
+
+      const groupsInGene = unique(
+        Object.values(assignments)
+          .filter(x => hasContent(x) && (x.gene || "__未设基因__") === gene)
+          .map(x => x.group || "__未设组别__")
+      );
+
+      const groupIndex = Math.max(0, groupsInGene.indexOf(group));
+      const lightnessSteps = [84, 74, 64, 54, 44, 79, 69, 59, 49, 39];
+      const lightness = lightnessSteps[groupIndex % lightnessSteps.length];
+      return `hsl(${hue}, 76%, ${lightness}%)`;
+    }
+
+    function sanitizeFilenamePart(text) {
+      return String(text || "")
+        .replace(/[\\/:*?"<>|]/g, "_")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function buildPlateExportBasename(type) {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, "0");
+      const datePart =
+        String(now.getFullYear()).slice(-2) +
+        pad(now.getMonth() + 1) +
+        pad(now.getDate());
+
+      const groups = unique(
+        Object.values(assignments)
+          .filter(hasContent)
+          .map(item => String(item.group || "").trim())
+          .filter(Boolean)
+      );
+
+      const groupPart = groups.length
+        ? groups.map(sanitizeFilenamePart).join("、")
+        : "未设组别";
+
+      const viewPart = type === "normal" ? "正向" : "旋转180";
+
+      return `96孔板图-${datePart}-${groupPart}-${viewPart}`;
+    }
+
+    function buildPlateExportFilename(type, format) {
+      const ext = String(format || "png").toLowerCase();
+      return `${buildPlateExportBasename(type)}.${ext}`;
+    }
+
+    function getPlateExportNode(type) {
+      const wrap = document.getElementById(type === "normal" ? "plateNormalWrap" : "plateRotatedWrap");
+      const plateScroll = wrap ? wrap.querySelector(".plate-scroll") : null;
+      const plateGrid = wrap ? wrap.querySelector(".plate-grid") : null;
+
+      if (!wrap || !plateScroll || !plateGrid) {
+        throw new Error("未找到可导出的孔板区域");
+      }
+
+      const scrollRect = plateScroll.getBoundingClientRect();
+      const gridRect = plateGrid.getBoundingClientRect();
+
+      const exportCard = document.createElement("div");
+      exportCard.className = "plate-card";
+      exportCard.style.width = `${Math.ceil(Math.max(scrollRect.width, gridRect.width))}px`;
+      exportCard.style.boxSizing = "border-box";
+      exportCard.style.background = "#ffffff";
+      exportCard.style.padding = "8px";
+      exportCard.style.border = "1px solid var(--border)";
+      exportCard.style.borderRadius = "14px";
+      exportCard.style.boxShadow = "var(--shadow)";
+      exportCard.style.display = "flex";
+      exportCard.style.flexDirection = "column";
+      exportCard.style.gap = "0";
+
+      const title = document.createElement("div");
+      title.className = "export-image-title";
+      title.textContent = buildPlateExportBasename(type);
+
+      const scrollClone = plateScroll.cloneNode(true);
+      scrollClone.style.width = `${Math.ceil(scrollRect.width)}px`;
+      scrollClone.style.overflow = "visible";
+      scrollClone.style.display = "flex";
+      scrollClone.style.justifyContent = "center";
+      scrollClone.style.alignItems = "flex-start";
+      scrollClone.style.paddingBottom = "0";
+
+      const gridClone = scrollClone.querySelector(".plate-grid");
+      if (gridClone) {
+        gridClone.style.width = `${Math.ceil(gridRect.width)}px`;
+        gridClone.style.maxWidth = "none";
+        gridClone.style.minWidth = "0";
+        gridClone.style.margin = "0 auto";
+      }
+
+      exportCard.appendChild(title);
+      exportCard.appendChild(scrollClone);
+
+      return exportCard;
+    }
+
+    function buildPlateSvg(type) {
+      const exportNode = getPlateExportNode(type);
+
+      const stage = document.createElement("div");
+      stage.style.position = "fixed";
+      stage.style.left = "-10000px";
+      stage.style.top = "0";
+      stage.style.zIndex = "-1";
+      stage.style.background = "#ffffff";
+      stage.style.padding = "0";
+      stage.appendChild(exportNode);
+      document.body.appendChild(stage);
+
+      const rect = exportNode.getBoundingClientRect();
+      const width = Math.max(1, Math.ceil(rect.width));
+      const height = Math.max(1, Math.ceil(rect.height));
+
+      const styleText = (document.querySelector("style")?.textContent || "") + `
+        .legend { display: none !important; }
+        .plate-head, .plate-actions, .view-tabs { display: none !important; }
+        body {
+          margin: 0;
+          background: #ffffff;
+          font-family: Arial, "Microsoft YaHei", "PingFang SC", sans-serif;
+        }
+      `;
+
+      const xhtml = `
+        <div xmlns="http://www.w3.org/1999/xhtml" style="margin:0;padding:0;background:#ffffff;">
+          <style>${styleText}</style>
+          ${exportNode.outerHTML}
+        </div>
+      `;
+
+      document.body.removeChild(stage);
+
+      const svg =
+        `<?xml version="1.0" encoding="UTF-8"?>` +
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">` +
+        `<foreignObject width="100%" height="100%">${xhtml}</foreignObject>` +
+        `</svg>`;
+
+      return { svg, width, height };
+    }
+
+    function canvasRoundedRect(ctx, x, y, width, height, radius) {
+      const r = Math.max(0, Math.min(radius || 0, width / 2, height / 2));
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + width - r, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+      ctx.lineTo(x + width, y + height - r);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+      ctx.lineTo(x + r, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function cssPx(value, fallback = 0) {
+      const n = parseFloat(value);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function drawDomTextToCanvas(ctx, element, rootRect, offsetX, offsetY) {
+      if (!element) return;
+
+      const value = String(element.textContent || "");
+      if (!value) return;
+
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+
+      const x = offsetX + (rect.left - rootRect.left);
+      const y = offsetY + (rect.top - rootRect.top);
+      const width = Math.max(1, rect.width);
+      const height = Math.max(1, rect.height);
+
+      const fontSize = cssPx(style.fontSize, 10);
+      const fontWeight = style.fontWeight || "400";
+      const fontFamily = style.fontFamily || 'Arial, "Microsoft YaHei", sans-serif';
+
+      ctx.save();
+      ctx.fillStyle = style.color || "#111827";
+      ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+      ctx.textBaseline = "middle";
+
+      const align = style.textAlign;
+      let drawX = x;
+      let textAlign = "left";
+
+      if (align === "center") {
+        drawX = x + width / 2;
+        textAlign = "center";
+      } else if (align === "right" || align === "end") {
+        drawX = x + width;
+        textAlign = "right";
+      }
+
+      ctx.textAlign = textAlign;
+
+      // 使用 maxWidth 保证长基因名完整落在当前 DOM 实际宽度内。
+      ctx.fillText(value, drawX, y + height / 2, width);
+      ctx.restore();
+    }
+
+    function drawPlateElementToCanvas(ctx, element, rootRect, offsetX, offsetY) {
+      const rect = element.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+
+      const style = getComputedStyle(element);
+      const x = offsetX + (rect.left - rootRect.left);
+      const y = offsetY + (rect.top - rootRect.top);
+      const width = rect.width;
+      const height = rect.height;
+      const radius = cssPx(style.borderRadius, 0);
+
+      ctx.save();
+
+      const bg = style.backgroundColor;
+      if (
+        bg &&
+        bg !== "rgba(0, 0, 0, 0)" &&
+        bg !== "transparent"
+      ) {
+        canvasRoundedRect(ctx, x, y, width, height, radius);
+        ctx.fillStyle = bg;
+        ctx.fill();
+      }
+
+      const borderWidth = Math.max(
+        cssPx(style.borderTopWidth, 0),
+        cssPx(style.borderRightWidth, 0),
+        cssPx(style.borderBottomWidth, 0),
+        cssPx(style.borderLeftWidth, 0)
+      );
+
+      const borderColor = style.borderTopColor;
+      if (borderWidth > 0 && borderColor && borderColor !== "rgba(0, 0, 0, 0)") {
+        canvasRoundedRect(
+          ctx,
+          x + borderWidth / 2,
+          y + borderWidth / 2,
+          Math.max(0, width - borderWidth),
+          Math.max(0, height - borderWidth),
+          Math.max(0, radius - borderWidth / 2)
+        );
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = borderWidth;
+        ctx.stroke();
+      }
+
+      // 当前孔位若仍处于选中状态，也按浏览器里的蓝色 outline 绘制。
+      if (element.classList.contains("selected")) {
+        const outlineWidth = cssPx(style.outlineWidth, 3);
+        const outlineColor = style.outlineColor || "#2563eb";
+        const inset = Math.max(0, outlineWidth / 2 + 1);
+
+        canvasRoundedRect(
+          ctx,
+          x + inset,
+          y + inset,
+          Math.max(0, width - inset * 2),
+          Math.max(0, height - inset * 2),
+          Math.max(0, radius - inset)
+        );
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = outlineWidth;
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      if (element.classList.contains("axis-label")) {
+        drawDomTextToCanvas(ctx, element, rootRect, offsetX, offsetY);
+        return;
+      }
+
+      if (element.classList.contains("well")) {
+        const wellId = element.querySelector(".well-id");
+        const wellMain = element.querySelector(".well-main");
+        const wellSub = element.querySelector(".well-sub");
+
+        drawDomTextToCanvas(ctx, wellId, rootRect, offsetX, offsetY);
+        drawDomTextToCanvas(ctx, wellMain, rootRect, offsetX, offsetY);
+        drawDomTextToCanvas(ctx, wellSub, rootRect, offsetX, offsetY);
+      }
+    }
+
+    function renderPlateToPngCanvas(type) {
+      const grid = document.getElementById(
+        type === "normal" ? "plateNormal" : "plateRotated"
+      );
+
+      if (!grid) {
+        throw new Error("未找到孔板区域");
+      }
+
+      const gridRect = grid.getBoundingClientRect();
+      if (!gridRect.width || !gridRect.height) {
+        throw new Error("当前孔板区域不可见，无法导出 PNG");
+      }
+
+      const outerPadding = 8;
+      const titleHeight = 34;
+      const titleGap = 5;
+      const cssWidth = Math.ceil(gridRect.width + outerPadding * 2);
+      const cssHeight = Math.ceil(
+        gridRect.height + outerPadding * 2 + titleHeight + titleGap
+      );
+
+      // 2 倍像素密度，保证导出的文字和边缘清晰。
+      const pixelRatio = Math.max(
+        2,
+        Math.min(3, Number(window.devicePixelRatio) || 1)
+      );
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(cssWidth * pixelRatio);
+      canvas.height = Math.ceil(cssHeight * pixelRatio);
+
+      const ctx = canvas.getContext("2d");
+      ctx.scale(pixelRatio, pixelRatio);
+
+      // 与浏览器右侧卡片一致的白色背景。
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, cssWidth, cssHeight);
+
+      // 外卡片边框。
+      canvasRoundedRect(
+        ctx,
+        0.5,
+        0.5,
+        cssWidth - 1,
+        cssHeight - 1,
+        14
+      );
+      ctx.strokeStyle = "#e5e7eb";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // 标题沿用文件名主体，不带扩展名。
+      ctx.fillStyle = "#0f172a";
+      ctx.font = '900 15px Arial, "Microsoft YaHei", "PingFang SC", sans-serif';
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(
+        buildPlateExportBasename(type),
+        cssWidth / 2,
+        outerPadding + titleHeight / 2,
+        cssWidth - outerPadding * 2
+      );
+
+      const offsetX = outerPadding;
+      const offsetY = outerPadding + titleHeight + titleGap;
+
+      Array.from(grid.children).forEach(element => {
+        drawPlateElementToCanvas(
+          ctx,
+          element,
+          gridRect,
+          offsetX,
+          offsetY
+        );
+      });
+
+      return canvas;
+    }
+
+    function downloadPlate(type, format) {
+      if (Object.keys(assignments).filter(k => hasContent(assignments[k])).length === 0) {
+        showMessage("请先分配孔位");
+        return;
+      }
+
+      const exportData = buildPlateSvg(type);
+
+      if (format === "svg") {
+        downloadText(
+          exportData.svg,
+          buildPlateExportFilename(type, "svg"),
+          "image/svg+xml;charset=utf-8"
+        );
+        return;
+      }
+
+      try {
+        const canvas = renderPlateToPngCanvas(type);
+
+        canvas.toBlob(blob => {
+          if (!blob) {
+            showMessage("PNG 生成失败，请重试");
+            return;
+          }
+
+          const a = document.createElement("a");
+          const url = URL.createObjectURL(blob);
+
+          a.href = url;
+          a.download = buildPlateExportFilename(type, "png");
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          showMessage("");
+        }, "image/png");
+      } catch (err) {
+        showMessage(
+          "PNG 导出失败：" +
+          (err && err.message ? err.message : "未知错误")
+        );
+      }
+    }
+
+    function hasContent(item) {
+      return item && (String(item.group || "").trim() || String(item.gene || "").trim());
+    }
+
+    function downloadText(text, filename, mime) {
+      const blob = new Blob([text], {type: mime});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function unique(arr) {
+      return Array.from(new Set(arr.filter(x => String(x || "").trim() !== "")));
+    }
+
+    function shortText(text, maxLen) {
+      text = String(text);
+      return text.length > maxLen ? text.slice(0, maxLen) : text;
+    }
+
+    function loadHistory(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveHistory(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch {}
+    }
+
+    function showMessage(text) {
+      document.getElementById("messageBox").textContent = text || "";
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>'"]/g, ch => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        '"': "&quot;"
+      }[ch]));
+    }
+
+    function escapeJs(str) {
+      return String(str).replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n");
+    }
+
+    function escapeXml(str) {
+      return String(str).replace(/[&<>'"]/g, ch => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&apos;",
+        '"': "&quot;"
+      }[ch]));
+    }
+
+    const newGroupInputEl = document.getElementById("newGroupInput");
+    const newGeneInputEl = document.getElementById("newGeneInput");
+
+    if (newGroupInputEl) {
+      newGroupInputEl.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          addGroupToCatalog();
+        }
+      });
+    }
+
+    if (newGeneInputEl) {
+      newGeneInputEl.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          addGeneToCatalog();
+        }
+      });
+    }
+
+    renderAll();
+    initPyodideRuntime();
+  </script>
+</body>
+</html>
